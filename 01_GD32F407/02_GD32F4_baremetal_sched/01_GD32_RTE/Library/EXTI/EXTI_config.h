@@ -5,7 +5,7 @@
 
 /* 开关 */
 #define USE_EXTI_0      0
-#define USE_EXTI_1      1
+#define USE_EXTI_1      0
 #define USE_EXTI_2      0
 #define USE_EXTI_3      0
 #define USE_EXTI_4      0
@@ -15,11 +15,11 @@
 #define USE_EXTI_8      0
 #define USE_EXTI_9      0
 #define USE_EXTI_10     0
-#define USE_EXTI_11     0
+#define USE_EXTI_11     1
 #define USE_EXTI_12     0
 #define USE_EXTI_13     0
 #define USE_EXTI_14     0
-#define USE_EXTI_15     0
+#define USE_EXTI_15     1
 
 /* ============================================================
  * 用户只需配置：RCU、PORT、SOURCE_PORT、PUPD、TRIG_TYPE、优先级
@@ -131,11 +131,11 @@
 #define EXTI10_SUB_PRIORITY 2
 
 /* ---------- EXTI11 ---------- */
-#define EXTI11_RCU          RCU_GPIOA
-#define EXTI11_PORT         GPIOA
-#define EXTI11_SOURCE_PORT  EXTI_SOURCE_GPIOA
-#define EXTI11_PUPD         GPIO_PUPD_PULLDOWN
-#define EXTI11_TRIG_TYPE    EXTI_TRIG_RISING
+#define EXTI11_RCU          RCU_GPIOD
+#define EXTI11_PORT         GPIOD
+#define EXTI11_SOURCE_PORT  EXTI_SOURCE_GPIOD
+#define EXTI11_PUPD         GPIO_PUPD_NONE
+#define EXTI11_TRIG_TYPE    EXTI_TRIG_BOTH
 #define EXTI11_PRE_PRIORITY 2
 #define EXTI11_SUB_PRIORITY 2
 
@@ -167,11 +167,11 @@
 #define EXTI14_SUB_PRIORITY 2
 
 /* ---------- EXTI15 ---------- */
-#define EXTI15_RCU          RCU_GPIOA
-#define EXTI15_PORT         GPIOA
-#define EXTI15_SOURCE_PORT  EXTI_SOURCE_GPIOA
-#define EXTI15_PUPD         GPIO_PUPD_PULLDOWN
-#define EXTI15_TRIG_TYPE    EXTI_TRIG_RISING
+#define EXTI15_RCU          RCU_GPIOD
+#define EXTI15_PORT         GPIOD
+#define EXTI15_SOURCE_PORT  EXTI_SOURCE_GPIOD
+#define EXTI15_PUPD         GPIO_PUPD_NONE    //===旋转按钮按键引脚
+#define EXTI15_TRIG_TYPE    EXTI_TRIG_BOTH//EXTI_TRIG_FALLING：下降沿     EXTI_TRIG_RISING：上升沿    EXTI_TRIG_BOTH：都检测
 #define EXTI15_PRE_PRIORITY 2
 #define EXTI15_SUB_PRIORITY 2
 

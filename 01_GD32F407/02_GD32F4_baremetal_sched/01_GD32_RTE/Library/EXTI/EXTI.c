@@ -106,77 +106,77 @@ void EXTI_Init(void)
 #if (USE_EXTI_5 == 1)
     bsp_exti_line_init(EXTI5_RCU, EXTI5_PORT, EXTI_PIN(5), EXTI5_PUPD,
                        EXTI5_SOURCE_PORT, EXTI_SOURCE_PIN(5), EXTI_LINE(5),
-                       EXTI5_TRIG_TYPE, EXTI_IRQn(5),
+                       EXTI5_TRIG_TYPE, EXTI5_9_IRQn,
                        EXTI5_PRE_PRIORITY, EXTI5_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_6 == 1)
     bsp_exti_line_init(EXTI6_RCU, EXTI6_PORT, EXTI_PIN(6), EXTI6_PUPD,
                        EXTI6_SOURCE_PORT, EXTI_SOURCE_PIN(6), EXTI_LINE(6),
-                       EXTI6_TRIG_TYPE, EXTI_IRQn(6),
+                       EXTI6_TRIG_TYPE, EXTI5_9_IRQn,
                        EXTI6_PRE_PRIORITY, EXTI6_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_7 == 1)
     bsp_exti_line_init(EXTI7_RCU, EXTI7_PORT, EXTI_PIN(7), EXTI7_PUPD,
                        EXTI7_SOURCE_PORT, EXTI_SOURCE_PIN(7), EXTI_LINE(7),
-                       EXTI7_TRIG_TYPE, EXTI_IRQn(7),
+                       EXTI7_TRIG_TYPE, EXTI5_9_IRQn,
                        EXTI7_PRE_PRIORITY, EXTI7_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_8 == 1)
     bsp_exti_line_init(EXTI8_RCU, EXTI8_PORT, EXTI_PIN(8), EXTI8_PUPD,
                        EXTI8_SOURCE_PORT, EXTI_SOURCE_PIN(8), EXTI_LINE(8),
-                       EXTI8_TRIG_TYPE, EXTI_IRQn(8),
+                       EXTI8_TRIG_TYPE, EXTI5_9_IRQn,
                        EXTI8_PRE_PRIORITY, EXTI8_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_9 == 1)
     bsp_exti_line_init(EXTI9_RCU, EXTI9_PORT, EXTI_PIN(9), EXTI9_PUPD,
                        EXTI9_SOURCE_PORT, EXTI_SOURCE_PIN(9), EXTI_LINE(9),
-                       EXTI9_TRIG_TYPE, EXTI_IRQn(9),
+                       EXTI9_TRIG_TYPE, EXTI5_9_IRQn,
                        EXTI9_PRE_PRIORITY, EXTI9_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_10 == 1)
     bsp_exti_line_init(EXTI10_RCU, EXTI10_PORT, EXTI_PIN(10), EXTI10_PUPD,
                        EXTI10_SOURCE_PORT, EXTI_SOURCE_PIN(10), EXTI_LINE(10),
-                       EXTI10_TRIG_TYPE, EXTI_IRQn(10),
+                       EXTI10_TRIG_TYPE, EXTI10_15_IRQn,
                        EXTI10_PRE_PRIORITY, EXTI10_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_11 == 1)
     bsp_exti_line_init(EXTI11_RCU, EXTI11_PORT, EXTI_PIN(11), EXTI11_PUPD,
                        EXTI11_SOURCE_PORT, EXTI_SOURCE_PIN(11), EXTI_LINE(11),
-                       EXTI11_TRIG_TYPE, EXTI_IRQn(11),
+                       EXTI11_TRIG_TYPE, EXTI10_15_IRQn,
                        EXTI11_PRE_PRIORITY, EXTI11_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_12 == 1)
     bsp_exti_line_init(EXTI12_RCU, EXTI12_PORT, EXTI_PIN(12), EXTI12_PUPD,
                        EXTI12_SOURCE_PORT, EXTI_SOURCE_PIN(12), EXTI_LINE(12),
-                       EXTI12_TRIG_TYPE, EXTI_IRQn(12),
+                       EXTI12_TRIG_TYPE, EXTI10_15_IRQn,
                        EXTI12_PRE_PRIORITY, EXTI12_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_13 == 1)
     bsp_exti_line_init(EXTI13_RCU, EXTI13_PORT, EXTI_PIN(13), EXTI13_PUPD,
                        EXTI13_SOURCE_PORT, EXTI_SOURCE_PIN(13), EXTI_LINE(13),
-                       EXTI13_TRIG_TYPE, EXTI_IRQn(13),
+                       EXTI13_TRIG_TYPE, EXTI10_15_IRQn,
                        EXTI13_PRE_PRIORITY, EXTI13_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_14 == 1)
     bsp_exti_line_init(EXTI14_RCU, EXTI14_PORT, EXTI_PIN(14), EXTI14_PUPD,
                        EXTI14_SOURCE_PORT, EXTI_SOURCE_PIN(14), EXTI_LINE(14),
-                       EXTI14_TRIG_TYPE, EXTI_IRQn(14),
+                       EXTI14_TRIG_TYPE, EXTI10_15_IRQn,
                        EXTI14_PRE_PRIORITY, EXTI14_SUB_PRIORITY);
 #endif
 
 #if (USE_EXTI_15 == 1)
     bsp_exti_line_init(EXTI15_RCU, EXTI15_PORT, EXTI_PIN(15), EXTI15_PUPD,
                        EXTI15_SOURCE_PORT, EXTI_SOURCE_PIN(15), EXTI_LINE(15),
-                       EXTI15_TRIG_TYPE, EXTI_IRQn(15),
+                       EXTI15_TRIG_TYPE, EXTI10_15_IRQn,
                        EXTI15_PRE_PRIORITY, EXTI15_SUB_PRIORITY);
 #endif
 }
