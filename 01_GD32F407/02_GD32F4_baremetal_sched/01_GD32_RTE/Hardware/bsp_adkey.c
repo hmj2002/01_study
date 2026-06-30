@@ -1,207 +1,297 @@
 #include "bsp_adkey.h"
+#include <stdio.h>
 
-#define ADKEY_RCU			RCU_GPIOA
-#define ADKEY_PIN			GPIOA, GPIO_PIN_2
-
-#define ADKEY_CHN			ADC_CHANNEL_2
-#define ADKEY_SAMPLETIME	ADC_SAMPLETIME_84
+#define ADKEY_RCU           RCU_GPIOA
+#define ADKEY_PIN           GPIOA, GPIO_PIN_2
 
 
-
-#define ADC_RECV_LEN  1
-// 用于接收两个通道的数值
-uint16_t g_recv_buff[ADC_RECV_LEN];
-
-#define DMA_CH  DMA1, DMA_CH0
-#define DMA_PERIPH_ADDR   (uint32_t)(&ADC_RDATA(ADC0))
-#define DMA_SUB_PERIPH    DMA_SUBPERI0
-
-static void DMA_ADC_config() {
-    //开启时钟
-    rcu_periph_clock_enable(RCU_DMA1);
-    // 重置
-    dma_deinit(DMA_CH);
-
-    // 结构体参数初始化
-    dma_single_data_parameter_struct init_struct;
-    dma_single_data_para_struct_init(&init_struct);
-    // ============ 内存到内存拷贝
-    // 方向： 内存到外设
-    init_struct.direction=DMA_PERIPH_TO_MEMORY;
-    // 源头：外设
-    init_struct.periph_addr=DMA_PERIPH_ADDR;
-
-    init_struct.periph_inc=DMA_PERIPH_INCREASE_DISABLE;
-    //目的地：内存
-    init_struct.memory0_addr=(uint32_t)g_recv_buff;
-
-    init_struct.memory_inc=DMA_MEMORY_INCREASE_ENABLE;
-
-
-    // 搬运一个数据的大小
-    init_struct.periph_memory_width=DMA_PERIPH_WIDTH_16BIT;
-    // 搬运数据个数(因为是动态变化，所以不写)
-    init_struct.number=ADC_RECV_LEN;
-    // 优先级
-    init_struct.priority=DMA_PRIORITY_HIGH;
-    //设置循环模式
-    init_struct.circular_mode  = DMA_CIRCULAR_MODE_ENABLE;
-
-    // DMA初始化， 设置搬运规则
-    dma_single_data_mode_init(DMA_CH,&init_struct);
-
-    //设置子外设
-    dma_channel_subperipheral_select(DMA_CH,DMA_SUB_PERIPH);
-
-
-    dma_channel_enable(DMA_CH);
+void ADKey_init(void)
+{
+    GPIO_analog(ADKEY_RCU, ADKEY_PIN);
 }
 
-static void ADC_init() {
-    // 使能时钟 rcu_periph_clock_enable
-    rcu_periph_clock_enable(RCU_ADC0);
-    // 重置 adc_deinit
-    adc_deinit();
+/******************** 按键参数区 ********************/
+/*
+ * 当前版本针对“单键体验优化”
+ * 默认只识别 KEY1 / KEY2 / KEY3 三个单键事件
+ * 不对组合键做 click / double / long 判定
+ * 这样稳定性和体验更好
+ */
 
-    // ===================基本配置========================
-    // 设置分频系数(84M/4=21M)  adc_clock_config
-    adc_clock_config(ADC_ADCCK_PCLK2_DIV4);
-    // 设置分辨率 adc_resolution_config
-    adc_resolution_config(ADC0,ADC_RESOLUTION_12B);
-    // 设置数据对齐(右对齐) adc_data_alignment_config
-    adc_data_alignment_config(ADC0,ADC_DATAALIGN_RIGHT);
+// 这三个值建议按你实际板子再微调
+#define KEY1_VALUE          950
+#define KEY2_VALUE          2048
+#define KEY3_VALUE          3140
 
-    // ===================模式配置========================
-    // 设置同步模式(独立模式) adc_sync_mode_config
-    adc_sync_mode_config(ADC_SYNC_MODE_INDEPENDENT);
-    // 设置单次模式(连续转换) adc_special_function_config
-    adc_special_function_config(ADC0,ADC_CONTINUOUS_MODE,ENABLE);
-    // 设置扫描模式 adc_special_function_config
-    adc_special_function_config(ADC0,ADC_SCAN_MODE,ENABLE);
+// 松手时 ADC 通常接近满量程
+#define KEY_UP_MIN          3900
 
-    // ===================通道配置========================
-    // 设置是否打开插入通道(不打开) adc_special_function_config
-    adc_special_function_config(ADC0,ADC_INSERTED_CHANNEL_AUTO,DISABLE);
-    // 设置转换通道个数(包括常规通道组和插入通道组) adc_channel_length_config
+// 按下识别窗口
+#define KEY_RANGE_DOWN      35
 
-    adc_channel_length_config(ADC0,ADC_ROUTINE_CHANNEL,1);
+// 已经按住后的保持窗口，比 DOWN 稍宽一点，减少抖动误判
+#define KEY_RANGE_HOLD      55
 
+// 扫描周期：你当前任务里 ADKey_scan() 是每 1ms 调一次
+#define ADKEY_SCAN_PERIOD_MS    1
 
-    adc_routine_channel_config(ADC0,0,ADKEY_CHN,ADKEY_SAMPLETIME);
+// 消抖时间
+#define ADKEY_DEBOUNCE_MS       12
 
-    // 使能ADC adc_enable
-    adc_enable(ADC0);
+// 长按触发时间
+#define ADKEY_LONG_MS           600
 
-    // 校准 adc_calibration_enable
-    adc_calibration_enable(ADC0);
+// 双击最大间隔（第一次松手后到第二次松手完成）
+#define ADKEY_DOUBLE_MS         250
 
-    adc_dma_request_after_last_enable(ADC0);
+// 长按连发周期（长按触发后，每隔多久继续回调一次）
+#define ADKEY_REPEAT_MS         150
 
-    adc_dma_mode_enable(ADC0);
+#define ADKEY_DEBOUNCE_TICKS    (ADKEY_DEBOUNCE_MS / ADKEY_SCAN_PERIOD_MS)
+#define ADKEY_LONG_TICKS        (ADKEY_LONG_MS / ADKEY_SCAN_PERIOD_MS)
+#define ADKEY_DOUBLE_TICKS      (ADKEY_DOUBLE_MS / ADKEY_SCAN_PERIOD_MS)
+#define ADKEY_REPEAT_TICKS      (ADKEY_REPEAT_MS / ADKEY_SCAN_PERIOD_MS)
 
-    DMA_ADC_config();
+#define ADKEY_NONE              0
+#define ADKEY_INVALID           0xFF
 
-    // 告诉ADC需要转换数据(使能触发)
-    adc_software_trigger_enable(ADC0, ADC_ROUTINE_CHANNEL);
+/******************** 工具函数 ********************/
+static uint8_t ADKey_is_in(uint16_t value, uint16_t center, uint16_t range)
+{
+    return ((int32_t)value >= ((int32_t)center - (int32_t)range)) &&
+           ((int32_t)value <= ((int32_t)center + (int32_t)range));
 }
 
+/*
+ * 单键解码：
+ * 返回值：
+ * 0   无按键
+ * 1   KEY1
+ * 2   KEY2
+ * 3   KEY3
+ * 0xFF 无效过渡区，忽略本次采样
+ */
+static uint8_t ADKey_decode_value(uint16_t value, uint8_t stable_key)
+{
+    // 如果当前已有稳定按键，先用更宽的 HOLD 窗口保持
+    if (stable_key == 1 && ADKey_is_in(value, KEY1_VALUE, KEY_RANGE_HOLD)) return 1;
+    if (stable_key == 2 && ADKey_is_in(value, KEY2_VALUE, KEY_RANGE_HOLD)) return 2;
+    if (stable_key == 3 && ADKey_is_in(value, KEY3_VALUE, KEY_RANGE_HOLD)) return 3;
 
-uint16_t ADC_get() {
+    // 再按普通 DOWN 窗口识别
+    if (ADKey_is_in(value, KEY1_VALUE, KEY_RANGE_DOWN)) return 1;
+    if (ADKey_is_in(value, KEY2_VALUE, KEY_RANGE_DOWN)) return 2;
+    if (ADKey_is_in(value, KEY3_VALUE, KEY_RANGE_DOWN)) return 3;
 
-//// 使能 ADC 的软件触发 adc_software_trigger_enable
-//    adc_software_trigger_enable(ADC0,ADC_ROUTINE_CHANNEL);
+    // 无按键
+    if (value >= KEY_UP_MIN) return ADKEY_NONE;
 
-//// 等待 ADC 转换完成 ADC_FLAG_EOC
-//    while(RESET==adc_flag_get(ADC0,ADC_FLAG_EOC));
-
-//// 清除 ADC 转换完成标志位
-//    adc_flag_clear(ADC0,ADC_FLAG_EOC);
-
-//============================================电位器=========================
-// 读取 ADC 转换结果 adc_routine_data_read
-    return g_recv_buff[0];
+    // 中间过渡区，忽略
+    return ADKEY_INVALID;
 }
 
+/******************** 事件状态机 ********************/
+static uint8_t  s_stable_key      = ADKEY_NONE;     // 当前稳定键值
+static uint8_t  s_raw_last_key    = ADKEY_INVALID;  // 上次原始键值
+static uint16_t s_debounce_cnt    = 0;
 
+// IIR 滤波值
+static uint16_t s_adc_filtered    = 0;
+static uint8_t  s_filter_inited   = 0;
 
-void ADKey_init() { // 初始化
-    GPIO_analog(ADKEY_RCU,ADKEY_PIN);
-    ADC_init();
+// 当前按下过程
+static uint16_t s_press_ticks     = 0;
+static uint8_t  s_long_reported   = 0;
+static uint16_t s_repeat_ticks    = 0;
 
+// 单击 / 双击等待
+static uint8_t  s_click_wait_key  = ADKEY_NONE;
+static uint16_t s_click_wait_ticks= 0;
+
+uint8_t ADKey_get_state(void)
+{
+    return s_stable_key;
 }
 
-#define SAMPLE_CNT 50
-// 按键按下时adc的值
-#define KEY1_VALUE	 			950
-#define KEY2_VALUE	 			2048
-#define KEY3_VALUE	 			3140
-#define KEY1_KEY2_VALUE			770
-#define KEY1_KEY3_VALUE			880
-#define KEY2_KEY3_VALUE			1780
-#define KEY1_KEY2_KEY3_VALUE	730
-#define KEY_ALL_UP				4095
+static void ADKey_clear_click_wait(void)
+{
+    s_click_wait_key = ADKEY_NONE;
+    s_click_wait_ticks = 0;
+}
 
-#define KEY1	(1 << 0)   // 0表示抬起，1表示按下
-#define KEY2	(1 << 1)
-#define KEY3	(1 << 2)
+static void ADKey_start_press(uint8_t key)
+{
+    // 若等待的是别的键的单击，这里可直接结算那个单击
+    if (s_click_wait_key != ADKEY_NONE && s_click_wait_key != key) {
+        ADCKey_on_click(s_click_wait_key);
+        ADKey_clear_click_wait();
+    }
 
-#define KEY_RANGE	20     // 判断是否在 ±20 范围内
+    s_press_ticks = 0;
+    s_long_reported = 0;
+    s_repeat_ticks = 0;
 
-// 判断是否在 ± KEY_RANGE 范围内
-#define	IS_IN(a, r)		(((a) < ((r) + KEY_RANGE)) && ((a) > ((r) - KEY_RANGE)))
+    ADCKey_on_down(key);
+}
 
-static uint8_t key_state=0;
-static uint8_t last_state=0;
-void ADKey_scan() { // 扫描
-    static uint8_t i=0;
-    static uint32_t num=0;
-    static uint16_t value_min=4096;
-    static uint16_t value_max=0;
-	
-    key_state=0;
-	
-    if(i<SAMPLE_CNT) {
-        uint16_t adc=ADC_get();
-        num+=adc;
-        if(adc<value_min) value_min=adc;
-        if(adc>value_max) value_max=adc;
-        i++;
-    } else {
-        num =num-(value_min+value_max);
-        uint16_t value=num/(SAMPLE_CNT-2);
-        //printf("value=%d\n",value);
+static void ADKey_end_press(uint8_t key)
+{
+    ADCKey_on_up(key);
 
-        i=0;
-        num=0;
-        value_min=4096;
-        value_max=0;
-
-        if(IS_IN(value,KEY1_VALUE)) {
-					key_state|=KEY1;
-        }else if(IS_IN(value,KEY2_VALUE)) {
-					key_state|=KEY2;
-        }else if(IS_IN(value,KEY3_VALUE)) {
-					key_state|=KEY3;
-        }else if(IS_IN(value,KEY1_KEY2_VALUE)) {
-					key_state|=KEY1;	
-					key_state|=KEY2;
-        }else if(IS_IN(value,KEY1_KEY3_VALUE)) {
-					key_state|=KEY1;	
-					key_state|=KEY3;			
-        }else if(IS_IN(value,KEY2_KEY3_VALUE)) {
-					key_state|=KEY2;	
-					key_state|=KEY3;
-        }else if(IS_IN(value,KEY1_KEY2_KEY3_VALUE)) {
-					key_state|=KEY1;	
-					key_state|=KEY2;
-					key_state|=KEY3;				
+    // 长按已经触发过，则不再触发 click / double
+    if (s_long_reported) {
+        if (s_click_wait_key == key) {
+            ADKey_clear_click_wait();
         }
-		uint8_t diff=key_state^last_state;
-		
-		if(diff==0) return;
-		last_state=key_state;
-    if(diff & KEY1) printf("KEY1 %s\n", (key_state & KEY1) ? "DOWN" : "UP");
-    if(diff & KEY2) printf("KEY2 %s\n", (key_state & KEY2) ? "DOWN" : "UP");
-    if(diff & KEY3) printf("KEY3 %s\n", (key_state & KEY3) ? "DOWN" : "UP");
-		}	
+        s_press_ticks = 0;
+        s_long_reported = 0;
+        s_repeat_ticks = 0;
+        return;
+    }
+
+    // 如果当前已经有同一个键在等待双击，则判定为双击
+    if (s_click_wait_key == key && s_click_wait_ticks < ADKEY_DOUBLE_TICKS) {
+        ADCKey_on_double_click(key);
+        ADKey_clear_click_wait();
+    } else {
+        // 否则开始等待单击确认
+        if (s_click_wait_key != ADKEY_NONE && s_click_wait_key != key) {
+            ADCKey_on_click(s_click_wait_key);
+        }
+        s_click_wait_key = key;
+        s_click_wait_ticks = 0;
+    }
+
+    s_press_ticks = 0;
+    s_long_reported = 0;
+    s_repeat_ticks = 0;
+}
+
+static void ADKey_on_stable_change(uint8_t old_key, uint8_t new_key)
+{
+    if (old_key != ADKEY_NONE) {
+        ADKey_end_press(old_key);
+    }
+
+    if (new_key != ADKEY_NONE) {
+        ADKey_start_press(new_key);
+    }
+}
+
+static void ADKey_process_timers(void)
+{
+    // 处理当前按下中的长按 / 连发
+    if (s_stable_key != ADKEY_NONE) {
+        if (s_press_ticks < 0xFFFF) {
+            s_press_ticks++;
+        }
+
+        if (!s_long_reported && s_press_ticks >= ADKEY_LONG_TICKS) {
+            s_long_reported = 1;
+
+            // 一旦进入长按，取消该键的单击/双击等待
+            if (s_click_wait_key == s_stable_key) {
+                ADKey_clear_click_wait();
+            }
+
+            ADCKey_on_long_click(s_stable_key);
+            s_repeat_ticks = 0;
+        } else if (s_long_reported) {
+            if (s_repeat_ticks < 0xFFFF) {
+                s_repeat_ticks++;
+            }
+
+            if (s_repeat_ticks >= ADKEY_REPEAT_TICKS) {
+                s_repeat_ticks = 0;
+                ADCKey_on_long_repeat(s_stable_key);
+            }
+        }
+    }
+    // 处理单击等待超时
+    else if (s_click_wait_key != ADKEY_NONE) {
+        if (s_click_wait_ticks < 0xFFFF) {
+            s_click_wait_ticks++;
+        }
+
+        if (s_click_wait_ticks >= ADKEY_DOUBLE_TICKS) {
+            ADCKey_on_click(s_click_wait_key);
+            ADKey_clear_click_wait();
+        }
+    }
+}
+
+/******************** 扫描主函数 ********************/
+void ADKey_scan(void)
+{
+    uint16_t adc = ADC0_get(0);
+
+    // IIR滤波：filtered = 3/4 * old + 1/4 * new
+    if (!s_filter_inited) {
+        s_adc_filtered = adc;
+        s_filter_inited = 1;
+    } else {
+        s_adc_filtered = (uint16_t)((s_adc_filtered * 3 + adc) / 4);
+    }
+
+    // 先处理时间事件
+    ADKey_process_timers();
+
+    // 解码原始键值
+    uint8_t raw_key = ADKey_decode_value(s_adc_filtered, s_stable_key);
+
+    // 过渡区直接忽略，不参与消抖
+    if (raw_key == ADKEY_INVALID) {
+        return;
+    }
+
+    // 消抖
+    if (raw_key != s_raw_last_key) {
+        s_raw_last_key = raw_key;
+        s_debounce_cnt = 0;
+        return;
+    }
+
+    if (s_debounce_cnt < ADKEY_DEBOUNCE_TICKS) {
+        s_debounce_cnt++;
+        return;
+    }
+
+    // 稳定状态发生变化
+    if (s_stable_key != raw_key) {
+        uint8_t old_key = s_stable_key;
+        s_stable_key = raw_key;
+        ADKey_on_stable_change(old_key, s_stable_key);
+    }
+}
+
+/******************** 默认弱回调，可在其他文件重写 ********************/
+__attribute__((weak)) void ADCKey_on_down(uint8_t i)
+{
+//   printf("KEY%d DOWN\r\n", i);
+}
+
+__attribute__((weak)) void ADCKey_on_up(uint8_t i)
+{
+    //  printf("KEY%d UP\r\n", i);
+}
+
+__attribute__((weak)) void ADCKey_on_click(uint8_t i)
+{
+    printf("KEY%d CLICK\r\n", i);
+}
+
+__attribute__((weak)) void ADCKey_on_long_click(uint8_t i)
+{
+    printf("KEY%d LONG\r\n", i);
+}
+
+__attribute__((weak)) void ADCKey_on_double_click(uint8_t i)
+{
+    printf("KEY%d DOUBLE\r\n", i);
+}
+
+__attribute__((weak)) void ADCKey_on_long_repeat(uint8_t i)
+{
+    // 默认不打印，避免长按刷屏太厉害
+    // printf("KEY%d REPEAT\r\n", i);
 }
