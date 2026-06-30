@@ -6,7 +6,12 @@ Task_t task_list[]={
 {0,2,App_Debug_LED188_test_task},
 {0,500,App_LED188_1_199_task},
 {0,1,App_ADKey_task},
+//{0,1000,App_Voltage_task},
+//{0,1000,App_Current_task},
+{0,500,App_LED188_1_199_add_task},
+{0,500,App_LED188_199_1_sub_task},
 };
+
 
 // timer5的中断回调函数，每隔1ms执行1次
 volatile uint64_t g_t5_tick_ms = 0; // 全局变量定义
