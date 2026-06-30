@@ -1,0 +1,39 @@
+# ========== Keil / ARM 编译产物 ==========
+Objects/
+Listings/
+*.uvguix.*
+*.uvoptx
+*.dep
+*.axf
+*.hex
+*.bin
+*.map
+*.lst
+*.crf
+*.d
+*.o
+*.lnp
+*.sct
+*.tra
+*.htm
+
+# ========== J-Link 调试文件 ==========
+JLinkLog.txt
+JLinkSettings.ini
+
+# ========== 敏感配置（不上传密钥） ==========
+*.config
+config.h
+wifi_config.h
+mqtt_config.h
+
+# ========== 临时文件 ==========
+*.tmp
+*.bak
+*.log
+*.uvmpw
+
+# ========== 核心板代码目录（如果你整个不想上传） ==========
+01_GD32_temp_humi/
+# 或者只屏蔽里面的配置子目录：
+# 01_GD32_temp_humi/config/
